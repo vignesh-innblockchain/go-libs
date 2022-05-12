@@ -1,17 +1,8 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRequest_GetBase(t *testing.T) {
@@ -108,94 +99,4 @@ func TestRequest_GetURL(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestTimeoutOption(t *testing.T) {
-	tests := []struct {
-		name             string
-		serverTimeout    time.Duration
-		serverResponse   string
-		clientTimeout    time.Duration
-		expectedResponse string
-		errExpected      assert.ErrorAssertionFunc
-	}{
-		{
-			name:           "client exits with timeout err",
-			serverTimeout:  time.Millisecond * 5,
-			serverResponse: "ok",
-			clientTimeout:  time.Millisecond * 2,
-			errExpected:    assert.Error,
-		},
-		{
-			name:             "response returned in time",
-			serverTimeout:    time.Millisecond * 2,
-			serverResponse:   "{\"status\":\"ok\"}",
-			clientTimeout:    time.Millisecond * 5,
-			expectedResponse: "{\"status\":\"ok\"}",
-			errExpected:      assert.NoError,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				time.Sleep(tc.serverTimeout)
-				_, _ = fmt.Fprintf(w, tc.serverResponse)
-			}))
-
-			client := InitClient(srv.URL, nil, TimeoutOption(tc.clientTimeout))
-
-			var actual json.RawMessage
-			err := client.Get(&actual, "", nil)
-			tc.errExpected(t, err)
-			assert.Equal(t, tc.expectedResponse, string(actual))
-		})
-	}
-}
-
-type jsonModel struct {
-	Name string `json:"name"`
-}
-
-func TestGetRaw(t *testing.T) {
-	m := jsonModel{Name: "testGetRaw"}
-	body, _ := json.Marshal(m)
-
-	r := Request{
-		HttpClient:       newMockJSONClient(body),
-		HttpErrorHandler: DefaultErrorHandler,
-	}
-
-	responseRaw, err := r.GetRaw("", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, body, responseRaw)
-}
-
-func TestPostRaw(t *testing.T) {
-	m := jsonModel{Name: "testPostRaw"}
-	body, _ := json.Marshal(m)
-
-	r := Request{
-		HttpClient:       newMockJSONClient(body),
-		HttpErrorHandler: DefaultErrorHandler,
-	}
-
-	responseRaw, err := r.PostRaw("", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, body, responseRaw)
-}
-
-type mockJSONClient struct {
-	body []byte
-}
-
-func newMockJSONClient(b []byte) *mockJSONClient {
-	return &mockJSONClient{body: b}
-}
-
-func (c *mockJSONClient) Do(_ *http.Request) (*http.Response, error) {
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewBuffer(c.body)),
-	}, nil
 }

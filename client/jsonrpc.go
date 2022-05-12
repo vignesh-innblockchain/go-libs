@@ -5,9 +5,13 @@ import (
 	"fmt"
 )
 
-var requestID = int64(0)
+var (
+	requestId = int64(0)
+)
 
-const JsonRpcVersion = "2.0"
+const (
+	JsonRpcVersion = "2.0"
+)
 
 type (
 	RpcRequests []*RpcRequest
@@ -26,13 +30,6 @@ type (
 		Id      int64       `json:"id,omitempty"`
 	}
 
-	RpcResponseRaw struct {
-		JsonRpc string          `json:"jsonrpc"`
-		Error   *RpcError       `json:"error,omitempty"`
-		Result  json.RawMessage `json:"result,omitempty"`
-		Id      int64           `json:"id,omitempty"`
-	}
-
 	RpcError struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -40,7 +37,8 @@ type (
 )
 
 func (r *Request) RpcCall(result interface{}, method string, params interface{}) error {
-	req := &RpcRequest{JsonRpc: JsonRpcVersion, Method: method, Params: params, Id: genID()}
+
+	req := &RpcRequest{JsonRpc: JsonRpcVersion, Method: method, Params: params, Id: genId()}
 	var resp *RpcResponse
 	err := r.Post(&resp, "", req)
 	if err != nil {
@@ -50,19 +48,6 @@ func (r *Request) RpcCall(result interface{}, method string, params interface{})
 		return resp.Error
 	}
 	return resp.GetObject(result)
-}
-
-func (r *Request) RpcCallRaw(method string, params interface{}) ([]byte, error) {
-	req := &RpcRequest{JsonRpc: JsonRpcVersion, Method: method, Params: params, Id: genID()}
-	var resp *RpcResponseRaw
-	err := r.Post(&resp, "", req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Error != nil {
-		return nil, resp.Error
-	}
-	return []byte(resp.Result), nil
 }
 
 func (r *Request) RpcBatchCall(requests RpcRequests) ([]RpcResponse, error) {
@@ -94,12 +79,12 @@ func (r *RpcResponse) GetObject(toType interface{}) error {
 func (rs RpcRequests) fillDefaultValues() RpcRequests {
 	for _, r := range rs {
 		r.JsonRpc = JsonRpcVersion
-		r.Id = genID()
+		r.Id = genId()
 	}
 	return rs
 }
 
-func genID() int64 {
-	requestID++
-	return requestID
+func genId() int64 {
+	requestId += 1
+	return requestId
 }

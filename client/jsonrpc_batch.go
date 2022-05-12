@@ -24,7 +24,7 @@ func MakeBatches(elements []interface{}, batchSize int) (batches [][]interface{}
 			size = 0
 			batch = make([]interface{}, 0)
 		}
-		size++
+		size = size + 1
 		batch = append(batch, ele)
 	}
 	batches = append(batches, batch)

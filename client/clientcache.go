@@ -8,18 +8,22 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 )
 
-var memoryCache *memCache
+var (
+	memoryCache *memCache
+)
 
 func init() {
 	memoryCache = &memCache{cache: cache.New(5*time.Minute, 5*time.Minute)}
 }
 
 type memCache struct {
+	sync.RWMutex
 	cache *cache.Cache
 }
 
@@ -34,8 +38,8 @@ func (r *Request) PostWithCache(result interface{}, path string, body interface{
 	if err != nil {
 		return err
 	}
-
-	return memoryCache.setCache(key, result, cache)
+	memoryCache.setCache(key, result, cache)
+	return err
 }
 
 func (r *Request) PostWithCacheAndContext(result interface{}, path string, body interface{}, cache time.Duration, ctx context.Context) error {
@@ -49,8 +53,8 @@ func (r *Request) PostWithCacheAndContext(result interface{}, path string, body 
 	if err != nil {
 		return err
 	}
-
-	return memoryCache.setCache(key, result, cache)
+	memoryCache.setCache(key, result, cache)
+	return err
 }
 
 func (r *Request) GetWithCache(result interface{}, path string, query url.Values, cache time.Duration) error {
@@ -64,8 +68,8 @@ func (r *Request) GetWithCache(result interface{}, path string, query url.Values
 	if err != nil {
 		return err
 	}
-
-	return memoryCache.setCache(key, result, cache)
+	memoryCache.setCache(key, result, cache)
+	return err
 }
 
 func (r *Request) GetWithCacheAndContext(result interface{}, path string, query url.Values, cache time.Duration, ctx context.Context) error {
@@ -79,11 +83,20 @@ func (r *Request) GetWithCacheAndContext(result interface{}, path string, query 
 	if err != nil {
 		return err
 	}
+	memoryCache.setCache(key, result, cache)
+	return err
+}
 
-	return memoryCache.setCache(key, result, cache)
+//nolint
+func (mc *memCache) deleteCache(key string) {
+	mc.RLock()
+	defer mc.RUnlock()
+	memoryCache.cache.Delete(key)
 }
 
 func (mc *memCache) setCache(key string, value interface{}, duration time.Duration) error {
+	mc.RLock()
+	defer mc.RUnlock()
 	b, err := json.Marshal(value)
 	if err != nil {
 		return errors.New(err.Error() + " client cache cannot marshal cache object")
